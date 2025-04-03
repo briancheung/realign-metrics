@@ -6,7 +6,7 @@ on:
     branches:
       - blue_team_submissions
     paths:
-      - 'blue_team_submission/'
+      - 'blue_team_submission/**'
 
 jobs:
   validate-json:
