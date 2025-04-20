@@ -1,109 +1,124 @@
-# name: Validate Blue Team Submissions
+name: Validate Red Team Submissions
 
-# on:
-#   pull_request:
-#     types: [opened, synchronize, reopened, ready_for_review]
-#     branches:
-#       - blue_team_submissions
-#     paths:
-#       - 'blue_team_submission/**'
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    branches:
+      - red_team_submissions
+    paths:
+      - 'red_team_submission/**'
 
-# jobs:
-#   validate-json:
-#     runs-on: ubuntu-latest
-#     steps:
-#       - name: Checkout code
-#         uses: actions/checkout@v3
+jobs:
+  validate-json:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
         
-#       - name: Set up Python
-#         uses: actions/setup-python@v4
-#         with:
-#           python-version: '3.10'
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
           
-#       - name: Install dependencies
-#         run: |
-#           python -m pip install --upgrade pip
-#           pip install jsonschema
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install jsonschema
           
-#       - name: Get changed files
-#         id: changed-files
-#         uses: tj-actions/changed-files@v41
-#         with:
-#           files: blue_team_submission/*.json
+      - name: Get changed files
+        id: changed-files
+        uses: tj-actions/changed-files@v41
+        with:
+          files: red_team_submission/*.json
           
-#       - name: Validate JSON files
-#         if: steps.changed-files.outputs.any_changed == 'true'
-#         run: |
-#           cat > schema.json << 'EOF'
-#           {
-#             "type": "object",
-#             "required": ["models"],
-#             "properties": {
-#               "models": {
-#                 "type": "array",
-#                 "items": {
-#                   "type": "object",
-#                   "required": ["model_name", "source", "model_parameters"],
-#                   "properties": {
-#                     "model_name": {
-#                       "type": "string"
-#                     },
-#                     "source": {
-#                       "type": "string"
-#                     },
-#                     "model_parameters": {
-#                       "type": ["object", "null"]
-#                     }
-#                   }
-#                 }
-#               }
-#             }
-#           }
-#           EOF
+      - name: Validate JSON files
+        if: steps.changed-files.outputs.any_changed == 'true'
+        run: |
+          cat > schema.json << 'EOF'
+          {
+            "type": "object",
+            "required": ["differentiating_images"],
+            "properties": {
+              "differentiating_images": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": ["dataset_name", "image_identifier"],
+                  "properties": {
+                    "dataset_name": {
+                      "type": "string"
+                    },
+                    "image_identifier": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+          EOF
           
-#           # Python script to validate uniqueness of model names
-#           cat > validate.py << 'EOF'
-#           import json
-#           import sys
-#           import jsonschema
-#           import os
+          # Python script to validate red team submissions
+          cat > validate_red_team.py << 'EOF'
+          import json
+          import sys
+          import jsonschema
+          import os
           
-#           def validate_file(file_path):
-#               with open(file_path, 'r') as f:
-#                   try:
-#                       data = json.load(f)
-#                   except json.JSONDecodeError as e:
-#                       print(f"ERROR: Invalid JSON in {file_path}: {e}")
-#                       return False
+          def validate_file(file_path):
+              with open(file_path, 'r') as f:
+                  try:
+                      data = json.load(f)
+                  except json.JSONDecodeError as e:
+                      print(f"ERROR: Invalid JSON in {file_path}: {e}")
+                      return False
                       
-#               # Validate against schema
-#               with open('schema.json', 'r') as f:
-#                   schema = json.load(f)
+              # Validate against schema
+              with open('schema.json', 'r') as f:
+                  schema = json.load(f)
               
-#               try:
-#                   jsonschema.validate(instance=data, schema=schema)
-#               except jsonschema.exceptions.ValidationError as e:
-#                   print(f"ERROR: Schema validation failed for {file_path}: {e}")
-#                   return False
+              try:
+                  jsonschema.validate(instance=data, schema=schema)
+              except jsonschema.exceptions.ValidationError as e:
+                  print(f"ERROR: Schema validation failed for {file_path}: {e}")
+                  return False
                   
-#               # Check for duplicate model names
-#               model_names = [model["model_name"] for model in data.get("models", [])]
-#               if len(model_names) != len(set(model_names)):
-#                   print(f"ERROR: Duplicate model names found in {file_path}")
-#                   duplicate_names = set([name for name in model_names if model_names.count(name) > 1])
-#                   print(f"Duplicate model names: {', '.join(duplicate_names)}")
-#                   return False
+              # Check for duplicate dataset_name/image_identifier pairs
+              image_pairs = [(item["dataset_name"], item["image_identifier"]) 
+                            for item in data.get("differentiating_images", [])]
+              
+              if len(image_pairs) != len(set(image_pairs)):
+                  print(f"ERROR: Duplicate dataset_name/image_identifier pairs found in {file_path}")
                   
-#               print(f"✅ File {file_path} is valid")
-#               return True
+                  # Find and print duplicates
+                  seen = set()
+                  duplicates = []
+                  for pair in image_pairs:
+                      if pair in seen:
+                          duplicates.append(pair)
+                      else:
+                          seen.add(pair)
+                  
+                  for dataset, image in duplicates:
+                      print(f"Duplicate: {dataset}/{image}")
+                  return False
+              
+              # Count and validate the number of entries
+              num_entries = len(data.get("differentiating_images", []))
+              if num_entries < 10:
+                  print(f"ERROR: Too few images in {file_path}. Found {num_entries}, minimum required is 10.")
+                  return False
+                  
+              print(f"✅ File {file_path} is valid with {num_entries} differentiating images")
+              return True
           
-#           success = True
-#           for file_path in sys.argv[1:]:
-#               if not validate_file(file_path):
-#                   success = False
+          success = True
+          for file_path in sys.argv[1:]:
+              if not validate_file(file_path):
+                  success = False
           
-#           sys.exit(0 if success else 1)
-#           EOF
+          sys.exit(0 if success else 1)
+          EOF
           
-#           echo "Validating changed JSON files..."
-#           python validate.py ${{ steps.changed-files.outputs.all_changed_files }}
+          echo "Validating Red Team submission files..."
+          python validate_red_team.py ${{ steps.changed-files.outputs.all_changed_files }}
