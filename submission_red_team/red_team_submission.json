@@ -10,10 +10,6 @@
         },
         {
             "dataset_name": "cifar100",
-            "image_identifier": "test/bottle/image_2428.png"
-        },
-        {
-            "dataset_name": "cifar100",
             "image_identifier": "test/house/image_528.png"
         },
         {
