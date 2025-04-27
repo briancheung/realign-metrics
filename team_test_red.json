@@ -1,0 +1,17 @@
+{
+  "differentiating_images": [
+    {
+      "dataset_name": "cifar100",
+      "image_identifier": "test/girl/image_987.png"
+    },
+    {
+      "dataset_name": "cifar100",
+      "image_identifier": "test/orange/image_19.png"
+    },
+    {
+      "dataset_name": "cifar100",
+      "image_identifier": "test/bottle/image_2428.png"
+    }
+    // … add as many entries as needed
+  ]
+}
